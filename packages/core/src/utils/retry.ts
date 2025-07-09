@@ -18,7 +18,7 @@ export interface RetryOptions {
   onPersistent429?: (
     authType?: string,
     error?: unknown,
-  ) => Promise<string | boolean | null>;
+  ) => Promise<string | null>;
   authType?: string;
 }
 
@@ -102,16 +102,13 @@ export async function retryWithBackoff<T>(
       ) {
         try {
           const fallbackModel = await onPersistent429(authType, error);
-          if (fallbackModel !== false && fallbackModel !== null) {
+          if (fallbackModel) {
             // Reset attempt counter and try with new model
             attempt = 0;
             consecutive429Count = 0;
             currentDelay = initialDelayMs;
             // With the model updated, we continue to the next attempt
             continue;
-          } else {
-            // Fallback handler returned null/false, meaning don't continue - stop retry process
-            throw error;
           }
         } catch (fallbackError) {
           // If fallback fails, continue with original error
@@ -129,16 +126,13 @@ export async function retryWithBackoff<T>(
       ) {
         try {
           const fallbackModel = await onPersistent429(authType, error);
-          if (fallbackModel !== false && fallbackModel !== null) {
+          if (fallbackModel) {
             // Reset attempt counter and try with new model
             attempt = 0;
             consecutive429Count = 0;
             currentDelay = initialDelayMs;
             // With the model updated, we continue to the next attempt
             continue;
-          } else {
-            // Fallback handler returned null/false, meaning don't continue - stop retry process
-            throw error;
           }
         } catch (fallbackError) {
           // If fallback fails, continue with original error
@@ -161,16 +155,13 @@ export async function retryWithBackoff<T>(
       ) {
         try {
           const fallbackModel = await onPersistent429(authType, error);
-          if (fallbackModel !== false && fallbackModel !== null) {
+          if (fallbackModel) {
             // Reset attempt counter and try with new model
             attempt = 0;
             consecutive429Count = 0;
             currentDelay = initialDelayMs;
             // With the model updated, we continue to the next attempt
             continue;
-          } else {
-            // Fallback handler returned null/false, meaning don't continue - stop retry process
-            throw error;
           }
         } catch (fallbackError) {
           // If fallback fails, continue with original error
