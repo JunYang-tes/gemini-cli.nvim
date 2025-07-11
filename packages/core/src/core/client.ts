@@ -133,6 +133,10 @@ export class GeminiClient {
     return this.chat;
   }
 
+  isInitialized(): boolean {
+    return this.chat !== undefined && this.contentGenerator !== undefined;
+  }
+
   getHistory(): Content[] {
     return this.getChat().getHistory();
   }
