@@ -1,5 +1,5 @@
 {
-  "name": "@google/gemini-cli",
+  "name": "gemini-cli-neovim",
   "version": "0.1.18",
   "description": "Gemini CLI",
   "repository": {
@@ -28,9 +28,9 @@
     "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.1.18"
   },
   "dependencies": {
-    "@google/gemini-cli-core": "file:../core",
     "@google/genai": "1.9.0",
     "@iarna/toml": "^2.2.5",
+    "@google/gemini-cli-core": "npm:gemini-cli-core-neovim@0.1.18",
     "@types/update-notifier": "^6.0.8",
     "command-exists": "^1.2.9",
     "diff": "^7.0.0",
