@@ -12,6 +12,7 @@ import * as Diff from 'diff';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { isNodeError } from '../utils/errors.js';
 import { Tool } from './tools.js';
+import { diff } from '../utils/neovim.js'
 
 /**
  * A tool that supports a modify operation.
@@ -150,7 +151,14 @@ export async function modifyWithEditor<ToolParams>(
   );
 
   try {
-    await openDiff(oldPath, newPath, editorType);
+    if (!await diff(oldPath, newPath)
+      .catch(e => {
+        console.error(`Failed to use neovim to open diff: ${e.message}`)
+        return false
+      })
+    ) {
+      await openDiff(oldPath, newPath, editorType);
+    }
     const result = getUpdatedParams(
       oldPath,
       newPath,
