@@ -17,35 +17,54 @@ steps:
     entrypoint: 'npm'
     args: ['run', 'build:packages']
 
-  # Step 6: Build sandbox container image
+  # Step 6: Determine Docker Image Tag
+  - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
+    id: 'Determine Docker Image Tag'
+    entrypoint: 'bash'
+    args:
+      - -c
+      - |
+        FINAL_TAG="$SHORT_SHA" # Default to SHA
+        if [[ "$TAG_NAME" == *"-nightly"* ]]; then
+          echo "Nightly release detected."
+          FINAL_TAG="${TAG_NAME#v}"
+        elif [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Official release detected."
+          FINAL_TAG="${TAG_NAME#v}"
+        else
+          echo "Development/RC release detected. Using commit SHA as tag."
+        fi
+        echo "Determined image tag: $$FINAL_TAG"
+        echo "$$FINAL_TAG" > /workspace/image_tag.txt
+
+  # Step 7: Build sandbox container image
   - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
     id: 'Build sandbox Docker image'
     entrypoint: 'bash'
     args:
       - -c
       - |
-        if [ "$_OFFICIAL_RELEASE" = "true" ]; then
-          export GEMINI_SANDBOX_IMAGE_TAG="${TAG_NAME#v}"
-        else
-          export GEMINI_SANDBOX_IMAGE_TAG="$SHORT_SHA"
-        fi
+        export GEMINI_SANDBOX_IMAGE_TAG=$$(cat /workspace/image_tag.txt)
+        echo "Using Docker image tag for build: $$GEMINI_SANDBOX_IMAGE_TAG"
         npm run build:sandbox:fast
     env:
       - 'GEMINI_SANDBOX=$_CONTAINER_TOOL'
 
-  # Step 7: Publish sandbox container image
+  # Step 8: Publish sandbox container image
   - name: 'us-west1-docker.pkg.dev/gemini-code-dev/gemini-code-containers/gemini-code-builder'
     id: 'Publish sandbox Docker image'
     entrypoint: 'bash'
     args:
       - -c
       - |
-        if [ "$_OFFICIAL_RELEASE" = "true" ]; then
-          export GEMINI_SANDBOX_IMAGE_TAG="${TAG_NAME#v}"
-        else
-          export GEMINI_SANDBOX_IMAGE_TAG="$SHORT_SHA"
-        fi
-        npm run publish:sandbox
+        set -e
+        IMAGE_TAG=$(cat /workspace/image_tag.txt)
+        BASE_IMAGE_URI=$(npm run -s config get sandboxImageUri)
+        IMAGE_URI_NO_TAG=${BASE_IMAGE_URI%:*}
+        FINAL_IMAGE_URI="${IMAGE_URI_NO_TAG}:${IMAGE_TAG}"
+
+        echo "Pushing sandbox image: ${FINAL_IMAGE_URI}"
+        $_CONTAINER_TOOL push "${FINAL_IMAGE_URI}"
     env:
       - 'GEMINI_SANDBOX=$_CONTAINER_TOOL'
 
@@ -54,5 +73,4 @@ options:
   dynamicSubstitutions: true
 
 substitutions:
-  _OFFICIAL_RELEASE: 'false'
   _CONTAINER_TOOL: 'docker'
