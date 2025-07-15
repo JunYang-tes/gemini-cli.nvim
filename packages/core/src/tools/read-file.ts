@@ -46,10 +46,7 @@ export interface ReadFileToolParams {
 export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
   static readonly Name: string = 'read_file';
 
-  constructor(
-    private rootDirectory: string,
-    private config: Config,
-  ) {
+  constructor(private config: Config) {
     super(
       ReadFileTool.Name,
       'ReadFile',
@@ -77,7 +74,6 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
         type: Type.OBJECT,
       },
     );
-    this.rootDirectory = path.resolve(rootDirectory);
   }
 
   validateToolParams(params: ReadFileToolParams): string | null {
@@ -90,8 +86,8 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
     if (!path.isAbsolute(filePath)) {
       return `File path must be absolute, but was relative: ${filePath}. You must provide an absolute path.`;
     }
-    if (!isWithinRoot(filePath, this.rootDirectory)) {
-      return `File path must be within the root directory (${this.rootDirectory}): ${filePath}`;
+    if (!isWithinRoot(filePath, this.config.getTargetDir())) {
+      return `File path must be within the root directory (${this.config.getTargetDir()}): ${filePath}`;
     }
     if (params.offset !== undefined && params.offset < 0) {
       return 'Offset must be a non-negative number';
@@ -116,7 +112,10 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
     ) {
       return `Path unavailable`;
     }
-    const relativePath = makeRelative(params.absolute_path, this.rootDirectory);
+    const relativePath = makeRelative(
+      params.absolute_path,
+      this.config.getTargetDir(),
+    );
     return shortenPath(relativePath);
   }
 
@@ -134,7 +133,7 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
 
     const result = await processSingleFileContent(
       params.absolute_path,
-      this.rootDirectory,
+      this.config.getTargetDir(),
       params.offset,
       params.limit,
     );
