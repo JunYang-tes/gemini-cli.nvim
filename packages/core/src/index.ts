@@ -34,6 +34,8 @@ export * from './utils/gitIgnoreParser.js';
 export * from './utils/editor.js';
 export * as neovim from './utils/neovim.js';
 export * from './utils/quotaErrorDetection.js';
+export * from './utils/fileUtils.js';
+export * from './utils/retry.js';
 
 // Export services
 export * from './services/fileDiscoveryService.js';
