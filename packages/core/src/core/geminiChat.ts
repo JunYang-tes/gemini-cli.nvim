@@ -15,6 +15,7 @@ import {
   createUserContent,
   Part,
   GenerateContentResponseUsageMetadata,
+  Tool,
 } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
@@ -25,10 +26,6 @@ import {
   logApiResponse,
   logApiError,
 } from '../telemetry/loggers.js';
-import {
-  getStructuredResponse,
-  getStructuredResponseFromParts,
-} from '../utils/generateContentResponseUtilities.js';
 import {
   ApiErrorEvent,
   ApiRequestEvent,
@@ -141,11 +138,7 @@ export class GeminiChat {
   }
 
   private _getRequestTextFromContents(contents: Content[]): string {
-    return contents
-      .flatMap((content) => content.parts ?? [])
-      .map((part) => part.text)
-      .filter(Boolean)
-      .join('');
+    return JSON.stringify(contents);
   }
 
   private async _logApiRequest(
@@ -172,6 +165,7 @@ export class GeminiChat {
         this.config.getModel(),
         durationMs,
         prompt_id,
+        this.config.getContentGeneratorConfig()?.authType,
         usageMetadata,
         responseText,
       ),
@@ -193,14 +187,15 @@ export class GeminiChat {
         errorMessage,
         durationMs,
         prompt_id,
+        this.config.getContentGeneratorConfig()?.authType,
         errorType,
       ),
     );
   }
 
   /**
-   * Handles fallback to Flash model when persistent 429 errors occur for OAuth users.
-   * Uses a fallback handler if provided by the config, otherwise returns null.
+   * Handles falling back to Flash model when persistent 429 errors occur for OAuth users.
+   * Uses a fallback handler if provided by the config; otherwise, returns null.
    */
   private async handleFlashFallback(
     authType?: string,
@@ -230,6 +225,7 @@ export class GeminiChat {
         );
         if (accepted !== false && accepted !== null) {
           this.config.setModel(fallbackModel);
+          this.config.setFallbackMode(true);
           return fallbackModel;
         }
         // Check if the model was switched manually in the handler
@@ -291,11 +287,14 @@ export class GeminiChat {
           );
         }
 
-        return this.contentGenerator.generateContent({
-          model: modelToUse,
-          contents: requestContents,
-          config: { ...this.generationConfig, ...params.config },
-        });
+        return this.contentGenerator.generateContent(
+          {
+            model: modelToUse,
+            contents: requestContents,
+            config: { ...this.generationConfig, ...params.config },
+          },
+          prompt_id,
+        );
       };
 
       response = await retryWithBackoff(apiCall, {
@@ -315,7 +314,7 @@ export class GeminiChat {
         durationMs,
         prompt_id,
         response.usageMetadata,
-        getStructuredResponse(response),
+        JSON.stringify(response),
       );
 
       this.sendPromise = (async () => {
@@ -398,11 +397,14 @@ export class GeminiChat {
           );
         }
 
-        return this.contentGenerator.generateContentStream({
-          model: modelToUse,
-          contents: requestContents,
-          config: { ...this.generationConfig, ...params.config },
-        });
+        return this.contentGenerator.generateContentStream(
+          {
+            model: modelToUse,
+            contents: requestContents,
+            config: { ...this.generationConfig, ...params.config },
+          },
+          prompt_id,
+        );
       };
 
       // Note: Retrying streams can be complex. If generateContentStream itself doesn't handle retries
@@ -496,6 +498,10 @@ export class GeminiChat {
     this.history = history;
   }
 
+  setTools(tools: Tool[]): void {
+    this.generationConfig.tools = tools;
+  }
+
   getFinalUsageMetadata(
     chunks: GenerateContentResponse[],
   ): GenerateContentResponseUsageMetadata | undefined {
@@ -547,12 +553,11 @@ export class GeminiChat {
           allParts.push(...content.parts);
         }
       }
-      const fullText = getStructuredResponseFromParts(allParts);
       await this._logApiResponse(
         durationMs,
         prompt_id,
         this.getFinalUsageMetadata(chunks),
-        fullText,
+        JSON.stringify(chunks),
       );
     }
     this.recordHistory(inputContent, outputContent);
